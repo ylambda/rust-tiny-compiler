@@ -11,7 +11,7 @@ struct Token {
 }
 
 fn tokenize(input: &str) -> Vec<Token> {
-    let mut chars = input.chars().collect::<Vec<char>>();
+    let chars = input.chars().collect::<Vec<char>>();
     let mut tokens = Vec::new();
     let mut index = 0;
 
@@ -87,4 +87,81 @@ fn it_tokenizes() {
     let stdin = "(abc 123)".to_string();
     let tokens = tokenize(&stdin);
     assert_eq!(tokens.len(), 4);
+}
+
+struct ASTRoot {
+    name: &'static str,
+    body: Vec<ASTNode>
+}
+
+struct ASTNode {
+    name: &'static str,
+    value: String,
+    params: Vec<ASTNode>
+}
+
+fn parser(tokens: &Vec<Token>) -> ASTRoot {
+    let mut ast = ASTRoot {
+        name: "Program",
+        body: Vec::new()
+    };
+
+    let mut index = 0;
+
+    fn walk(index: &mut usize, tokens: &Vec<Token>) -> ASTNode {
+        let token = &tokens[*index];
+
+        if token.name == "number" {
+            *index += 1;
+
+            return ASTNode {
+                name: "NumberLiteral",
+                value: token.value.clone(),
+                params: Vec::new()
+            }
+        }
+
+        if token.name == "paren" && token.value == "(" {
+
+            *index += 1;
+            let token = &tokens[*index];
+
+            let mut node = ASTNode {
+                name: "CallExpression",
+                value: token.value.clone(),
+                params: Vec::new()
+            };
+
+            *index += 1;
+            let mut token = &tokens[*index];
+
+            while !(token.name == "paren" && token.value == ")") {
+                node.params.push(walk(index, tokens));
+                token = &tokens[*index];
+            }
+
+            *index += 1;
+
+            return node;
+        }
+
+        panic!("Invalid AST");
+    }
+
+    while index < tokens.len() {
+        ast.body.push(walk(&mut index, tokens));
+    }
+
+    return ast
+}
+
+#[test]
+fn it_parses() {
+    let stdin = "(a 1 234)".to_string();
+    let tokens = tokenize(&stdin);
+    let ast = parser(&tokens);
+    assert_eq!(ast.name, "Program");
+    assert_eq!(ast.body[0].name, "CallExpression");
+    assert_eq!(ast.body[0].params[0].name, "NumberLiteral");
+    assert_eq!(ast.body[0].params[1].name, "NumberLiteral");
 }
