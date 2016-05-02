@@ -45,6 +45,11 @@ fn tokenize(input: &str) -> Vec<Token> {
             while numeral.is_match(&current.to_string()) {
                 values.push(current);
                 index += 1;
+
+                if index >= chars.len() {
+                    break;
+                }
+                
                 current = chars[index];
             }
 
@@ -100,7 +105,7 @@ struct ASTNode {
     params: Vec<ASTNode>
 }
 
-fn parser(tokens: &Vec<Token>) -> ASTRoot {
+fn parse(tokens: &Vec<Token>) -> ASTRoot {
     let mut ast = ASTRoot {
         name: "Program",
         body: Vec::new()
@@ -159,9 +164,60 @@ fn parser(tokens: &Vec<Token>) -> ASTRoot {
 fn it_parses() {
     let stdin = "(a 1 234)".to_string();
     let tokens = tokenize(&stdin);
-    let ast = parser(&tokens);
+    let ast = parse(&tokens);
     assert_eq!(ast.name, "Program");
     assert_eq!(ast.body[0].name, "CallExpression");
     assert_eq!(ast.body[0].params[0].name, "NumberLiteral");
     assert_eq!(ast.body[0].params[1].name, "NumberLiteral");
+}
+
+fn traverse(node: &ASTNode) -> i32 {
+    if node.name == "NumberLiteral" {
+        return node.value.parse::<i32>().unwrap();
+    }
+
+    if node.name == "CallExpression" {
+
+        if node.value == "add" {
+            let result = traverse(&node.params[0]) + traverse(&node.params[1]);
+            return result;
+        }
+
+        if node.value == "subtract" {
+            let result = traverse(&node.params[0]) - traverse(&node.params[1]);
+            return result;
+        }
+
+        if node.value == "multiply" {
+            let result = traverse(&node.params[0]) * traverse(&node.params[1]);
+            return result;
+        }
+
+        if node.value == "divide" {
+            let result = traverse(&node.params[0]) / traverse(&node.params[1]);
+            return result;
+        }
+    }
+
+    panic!("Invalid AST!");
+}
+
+fn evaluate(ast: ASTRoot) -> i32 {
+    let mut result = 0;
+
+    for node in ast.body {
+        result += traverse(&node);
+    }
+
+    return result;
+}
+
+#[test]
+fn it_evaluates() {
+    let stdin = "(multiply 2 (add 4 6))".to_string();
+    let tokens = tokenize(&stdin);
+    let ast = parse(&tokens);
+    let result = evaluate(ast);
+
+    assert_eq!(result, 20);
 }
